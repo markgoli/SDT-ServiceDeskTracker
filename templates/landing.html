@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Live Analytics - Service Desk Tracker{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+{% block page_subtitle %}Live overview of assessment status &amp; SLA compliance{% endblock %}
+
+{% block content %}
+
+<div class="panel-grid split-65-35">
+  <div class="panel">
+    <h2>Overview</h2>
+    <div class="panel-sub">All requests, at a glance</div>
+    <div class="stat-trio">
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Total Requests</div>
+        <div class="stat-trio-value" style="color:#0055c6">{{ total }}</div>
+        <div class="stat-trio-sub">Across all statuses</div>
+      </div>
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Open</div>
+        <div class="stat-trio-value" style="color:#5638d1">{{ open_count }}</div>
+        <div class="stat-trio-sub">{{ on_track_count }} on track</div>
+      </div>
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Overdue</div>
+        <div class="stat-trio-value" style="color:#f0453a">{{ overdue_count }}</div>
+      </div>
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Closed</div>
+        <div class="stat-trio-value" style="color:#17824a">{{ closed_count }}</div>
+        <div class="stat-trio-sub">
+          {% if compliance_rate is not None %}{{ compliance_rate }}% within SLA{% else %}No SLA data yet{% endif %}
+        </div>
+      </div>
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Cancelled</div>
+        <div class="stat-trio-value" style="color:#707070">{{ cancelled_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>SLA Turnaround - Closed Assessments</h2>
+    <div class="panel-sub">Days from assignment to resolution</div>
+    {% if closed_count and sla_turnaround.avg is not None %}
+    <div class="stat-trio">
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Best</div>
+        <div class="stat-trio-value" style="color:#17824a">{{ sla_turnaround.best }}d</div>
+      </div>
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Average</div>
+        <div class="stat-trio-value">{{ sla_turnaround.avg }}d</div>
+      </div>
+      <div class="stat-trio-item">
+        <div class="stat-trio-label">Worst</div>
+        <div class="stat-trio-value" style="color:#f0453a">{{ sla_turnaround.worst }}d</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">No closed assessments yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel-grid">
+  <div class="panel">
+    <h2>Status Breakdown</h2>
+    <div class="panel-sub">All requests by current ServiceDesk Plus status</div>
+    {% if total %}
+    <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No data yet. Click "Refresh data" to sync.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>SLA Compliance - Closed Assessments</h2>
+    <div class="panel-sub">Closed within SLA target vs. closed outside target</div>
+    {% if closed_count %}
+    <div class="chart-wrap short"><canvas id="slaChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No closed assessments yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Closed Volume - This Week</h2>
+    <div class="panel-sub">Within SLA vs. outside SLA, by day closed</div>
+    {% if weekly_chart.labels %}
+    <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No closed assessments this week yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Closed Volume - Last 6 Months</h2>
+    <div class="panel-sub">Within SLA vs. outside SLA, by month closed</div>
+    {% if monthly_chart.labels %}
+    <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">Not enough closed history yet.</div>
+    {% endif %}
+  </div>
+
+
+  <div class="panel">
+    <h2>Open Workload</h2>
+    <div class="panel-sub">Open requests per technician</div>
+    {% if workload_chart.labels %}
+    <div class="chart-wrap"><canvas id="workloadChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No open requests right now.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel-grid">
+  <div class="panel">
+    <h2>Technician SLA Compliance</h2>
+    <div class="panel-sub">Closed within SLA vs. outside SLA, per technician</div>
+    {% if technician_sla_chart.labels %}
+    <div class="chart-wrap"><canvas id="technicianSlaChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No closed assessments with a known technician yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Open Request SLA Lifetime</h2>
+    <div class="panel-sub">Days elapsed since assignment, per open request — green while within the SLA window, red once breached. Assigned requests only.</div>
+    {% if sla_lifetime_chart.labels %}
+    <div class="chart-wrap"><canvas id="slaLifetimeChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No assigned open requests right now.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Open Request Due Dates</h2>
+    <div class="panel-sub">Days until each assigned open request is due (negative = already overdue)</div>
+    {% if due_dates_chart.labels %}
+    <div class="chart-wrap"><canvas id="dueDatesChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No assigned open requests right now.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel-grid">
+  <div class="panel">
+    <h2>Technician Performance</h2>
+    <div class="panel-sub">Current workload and closed-request track record, per technician</div>
+    {% if technician_rows %}
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Technician</th>
+              <th>Open</th>
+              <th>Closed</th>
+              <th>Cancelled</th>
+              <th>Total</th>
+              <th>Avg Days to Close</th>
+              <th>SLA Compliance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in technician_rows %}
+            <tr>
+              <td>{{ row.technician }}</td>
+              <td>{{ row.open }}</td>
+              <td>{{ row.closed }}</td>
+              <td>{{ row.cancelled }}</td>
+              <td>{{ row.total }}</td>
+              <td>{% if row.avg_days is not None %}{{ row.avg_days }}d{% else %}&mdash;{% endif %}</td>
+              <td>{% if row.compliance_rate is not None %}{{ row.compliance_rate }}%{% else %}&mdash;{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">No technician activity yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Open Tickets by Technician</h2>
+    <div class="panel-sub">Every currently open request, with its owner</div>
+    {% if open_tickets_table %}
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Technician</th>
+              <th>Reference</th>
+              <th>Subject</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in open_tickets_table %}
+            <tr>
+              <td>{{ row.technician }}</td>
+              <td class="ref-id">{{ row.ref }}</td>
+              <td>{{ row.system }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">No open requests right now.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Due Today</h2>
+    <div class="panel-sub">Assigned open requests whose SLA is due today</div>
+    {% if due_today_rows %}
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Reference</th>
+              <th>Technician</th>
+              <th>Subject</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in due_today_rows %}
+            <tr>
+              <td class="ref-id">{{ row.ref }}</td>
+              <td>{{ row.technician }}</td>
+              <td>{{ row.system }}</td>
+              <td>{{ row.template_type }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">Nothing due today.</div>
+    {% endif %}
+  </div>
+</div>
+
+{{ status_chart|json_script:"status-chart-data" }}
+{{ sla_chart|json_script:"sla-chart-data" }}
+{{ monthly_chart|json_script:"monthly-chart-data" }}
+{{ weekly_chart|json_script:"weekly-chart-data" }}
+{{ workload_chart|json_script:"workload-chart-data" }}
+{{ technician_sla_chart|json_script:"technician-sla-chart-data" }}
+{{ sla_lifetime_chart|json_script:"sla-lifetime-chart-data" }}
+{{ due_dates_chart|json_script:"due-dates-chart-data" }}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/dashboard_charts.js' %}"></script>
+{% endblock %}

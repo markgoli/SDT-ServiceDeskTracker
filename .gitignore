@@ -1,0 +1,51 @@
+__pycache__/
+*.pyc
+venv/
+.env
+db.sqlite3
+staticfiles/
+media/
+.DS_Store
+*.log
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database
+db.sqlite3
+db.sqlite3-journal
+
+# Other
+.DS_Store
+*.log
+local_settings.py 
+
+# media files. 
+media/
+
+# node modules
+node_modules/
+
+#vscode files
+.vscode/
+
+# binaries
+binaries/
+
+# output & upload directory
+uploads/
+outputs/
+
+sample_data/

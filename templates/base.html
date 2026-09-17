@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Service Desk Tracker{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script>Chart.register(ChartDataLabels);</script>
+</head>
+<body>
+  {% csrf_token %}
+  <div class="app-shell">
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-row">
+          <div class="topbar-heading">
+            <span class="brand-mark">SD</span>
+            <h1>{% block page_title %}Analytics{% endblock %} <span class="title-suffix">- SDT</span></h1>
+            <nav class="topbar-nav">
+              <a class="topbar-nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'tracker:dashboard' %}" title="Dashboard" aria-label="Dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>
+              </a>
+              <a class="topbar-nav-link {% if request.resolver_match.url_name == 'ticket_list' %}active{% endif %}" href="{% url 'tracker:ticket_list' %}" title="All Tickets" aria-label="All Tickets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </a>
+            </nav>
+          </div>
+          <div class="sync-controls">
+            <div class="lookup-field">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <input type="text" id="lookup-input" placeholder="Look up request ID…" aria-label="Look up request ID">
+              <button type="button" id="lookup-btn" class="lookup-go" title="Look up request" aria-label="Look up request">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+              </button>
+            </div>
+            <div class="sync-status">
+              {% if latest_sync %}
+                {% if latest_sync.success %}
+                  <span class="status-dot ok pulse"></span>
+                  <span>Last synced <span id="last-synced-relative" data-timestamp="{{ latest_sync.finished_at|date:'c' }}">{{ latest_sync.finished_at|date:"M j, g:i A" }}</span></span>
+                {% else %}
+                  <span class="status-dot fail"></span> Last sync failed — {{ latest_sync.message|truncatechars:60 }}
+                {% endif %}
+              {% else %}
+                <span class="status-dot fail"></span> Never synced yet
+              {% endif %}
+            </div>
+            <button id="refresh-btn" class="icon-btn" type="button" title="Refresh data" aria-label="Refresh data">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </button>
+          </div>
+        </div>
+        <div class="topbar-row topbar-row-sub">
+          <div class="subtitle">{% block page_subtitle %}Assessment status &amp; SLA tracking{% endblock %}</div>
+          <div class="topbar-meta">
+            <span>Data source: <strong>{{ data_source_label }}</strong></span>
+            <span class="meta-sep">&middot;</span>
+            <span>Auto-refresh: <strong>{{ auto_refresh_minutes }} min</strong></span>
+          </div>
+        </div>
+      </div>
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="detail-modal-overlay" class="modal-overlay" hidden>
+    <div class="modal" id="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title">
+      <div class="modal-header">
+        <div>
+          <div class="modal-eyebrow" id="detail-modal-ref"></div>
+          <h3 id="detail-modal-title"></h3>
+          <div class="modal-badges" id="detail-modal-badges"></div>
+        </div>
+        <button type="button" class="modal-close" id="detail-modal-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="detail-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="workload-modal-overlay" class="modal-overlay" hidden>
+    <div class="modal" id="workload-modal" role="dialog" aria-modal="true" aria-labelledby="workload-modal-title">
+      <div class="modal-header">
+        <div>
+          <div class="modal-eyebrow" id="workload-modal-eyebrow"></div>
+          <h3 id="workload-modal-title"></h3>
+        </div>
+        <button type="button" class="modal-close" id="workload-modal-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="workload-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="lookup-modal-overlay" class="modal-overlay" hidden>
+    <div class="modal" id="lookup-modal" role="dialog" aria-modal="true" aria-labelledby="lookup-modal-title">
+      <div class="modal-header">
+        <div>
+          <div class="modal-eyebrow" id="lookup-modal-ref"></div>
+          <h3 id="lookup-modal-title"></h3>
+        </div>
+        <button type="button" class="modal-close" id="lookup-modal-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="lookup-modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    window.REFRESH_URL = "{% url 'tracker:refresh' %}";
+    window.REQUEST_LOOKUP_URL = "{% url 'tracker:request_lookup' %}";
+    window.AUTO_REFRESH_MINUTES = {{ auto_refresh_minutes }};
+  </script>
+  <script src="{% static 'js/app.js' %}"></script>
+  <script src="{% static 'js/relative_time.js' %}"></script>
+  <script src="{% static 'js/ticket_modal.js' %}"></script>
+  <script src="{% static 'js/request_lookup.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

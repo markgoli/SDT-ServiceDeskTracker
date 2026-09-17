@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}All Tickets — Service Desk Tracker{% endblock %}
+{% block page_title %}All Tickets{% endblock %}
+{% block page_subtitle %}{{ page_obj.paginator.count }} request{{ page_obj.paginator.count|pluralize }} tracked{% endblock %}
+
+{% block content %}
+
+<form class="filter-bar" id="filter-form" method="get">
+  <div class="search-field">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    <input type="text" name="q" placeholder="Search reference, system, owner…" value="{{ current_search }}" aria-label="Search assessments">
+  </div>
+
+  <select name="status" class="select-tight" aria-label="Filter by status">
+    <option value="">All statuses</option>
+    {% for status in status_choices %}
+      {% if status %}
+        <option value="{{ status }}" {% if current_status == status %}selected{% endif %}>{{ status }}</option>
+      {% endif %}
+    {% endfor %}
+  </select>
+
+  <select name="technician" class="select-tight" aria-label="Filter by technician">
+    <option value="">All technicians</option>
+    {% for tech in technicians %}
+      {% if tech %}
+        <option value="{{ tech }}" {% if current_technician == tech %}selected{% endif %}>{{ tech }}</option>
+      {% endif %}
+    {% endfor %}
+  </select>
+
+  {% if current_status or current_technician or current_search %}
+    <a href="{% url 'tracker:ticket_list' %}" class="clear-link">Clear filters</a>
+  {% endif %}
+</form>
+
+<div class="table-wrap">
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>System</th>
+          <th>Technician</th>
+          <th>Requester</th>
+          <th>Status</th>
+          <th>SLA State</th>
+          <th>Due</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tickets %}
+        <tr>
+          <td class="ref-id">{{ t.reference_id }}</td>
+          <td>{{ t.system_name }}</td>
+          <td>{{ t.technician }}</td>
+          <td>{{ t.responsible_person }}</td>
+          <td><span class="badge" style="background:{{ t.status_badge_bg }}; color:{{ t.status_hex }}">{{ t.status }}</span></td>
+          <td><span class="badge badge-{{ t.sla_state }}">{{ t.sla_state_display }}</span></td>
+          <td>{% if t.sla_due_at %}{{ t.sla_due_at|date:"M j, Y" }}{% else %}&mdash;{% endif %}</td>
+          <td class="col-actions">
+            <button
+              type="button"
+              class="icon-btn-ghost"
+              data-modal-trigger
+              data-ref="{{ t.reference_id }}"
+              data-system="{{ t.system_name }}"
+              data-technician="{{ t.technician }}"
+              data-responsible="{{ t.responsible_person }}"
+              data-template="{{ t.template_name }}"
+              data-sla-policy="{{ t.sla_policy_name }}"
+              data-approval-status="{{ t.approval_status }}"
+              data-approved="{% if t.approved_at %}{{ t.approved_at|date:'M j, Y g:i A' }}{% endif %}"
+              data-approver1="{{ t.approver_1 }}"
+              data-approver2="{{ t.approver_2 }}"
+              data-approval-team="{{ t.approval_team }}"
+              data-status="{{ t.status }}"
+              data-status-color="{{ t.status_hex }}"
+              data-created="{% if t.created_at %}{{ t.created_at|date:'M j, Y g:i A' }}{% endif %}"
+              data-sla-due="{% if t.sla_due_at %}{{ t.sla_due_at|date:'M j, Y g:i A' }}{% endif %}"
+              data-closed="{% if t.closed_at %}{{ t.closed_at|date:'M j, Y g:i A' }}{% endif %}"
+              data-days-open="{% if t.days_open is not None %}{{ t.days_open }} day{{ t.days_open|pluralize }}{% endif %}"
+              data-sla-state="{{ t.sla_state_display }}"
+              data-sla-state-key="{{ t.sla_state }}"
+              data-last-synced="{{ t.last_synced_at|date:'M j, Y g:i A' }}"
+              title="View details"
+              aria-label="View details for {{ t.reference_id }}"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="empty-state">No requests match these filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if is_paginated %}
+<div class="pagination">
+  {% if page_obj.has_previous %}
+    <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_technician %}technician={{ current_technician }}&{% endif %}{% if current_search %}q={{ current_search }}&{% endif %}page={{ page_obj.previous_page_number }}">Prev</a>
+  {% endif %}
+  <span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_technician %}technician={{ current_technician }}&{% endif %}{% if current_search %}q={{ current_search }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/ticket_filters.js' %}"></script>
+{% endblock %}
