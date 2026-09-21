@@ -31,7 +31,14 @@
     {% endfor %}
   </select>
 
-  {% if current_status or current_technician or current_search %}
+  <select name="sla_state" class="select-tight" aria-label="Filter by SLA state">
+    <option value="">All SLA states</option>
+    {% for key, label in sla_state_choices %}
+      <option value="{{ key }}" {% if current_sla_state == key %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
+  {% if current_status or current_technician or current_sla_state or current_search %}
     <a href="{% url 'tracker:ticket_list' %}" class="clear-link">Clear filters</a>
   {% endif %}
 </form>
@@ -80,9 +87,12 @@
               data-status="{{ t.status }}"
               data-status-color="{{ t.status_hex }}"
               data-created="{% if t.created_at %}{{ t.created_at|date:'M j, Y g:i A' }}{% endif %}"
+              data-assigned="{% if t.assigned_at %}{{ t.assigned_at|date:'M j, Y g:i A' }}{% endif %}"
               data-sla-due="{% if t.sla_due_at %}{{ t.sla_due_at|date:'M j, Y g:i A' }}{% endif %}"
+              data-actual-due="{% if t.calculated_due_at %}{{ t.calculated_due_at|date:'M j, Y g:i A' }}{% endif %}"
               data-closed="{% if t.closed_at %}{{ t.closed_at|date:'M j, Y g:i A' }}{% endif %}"
               data-days-open="{% if t.days_open is not None %}{{ t.days_open }} day{{ t.days_open|pluralize }}{% endif %}"
+              data-overdue="{% if not t.is_terminal %}{% if t.is_overdue %}Yes{% else %}No{% endif %}{% endif %}"
               data-sla-state="{{ t.sla_state_display }}"
               data-sla-state-key="{{ t.sla_state }}"
               data-last-synced="{{ t.last_synced_at|date:'M j, Y g:i A' }}"
@@ -104,11 +114,11 @@
 {% if is_paginated %}
 <div class="pagination">
   {% if page_obj.has_previous %}
-    <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_technician %}technician={{ current_technician }}&{% endif %}{% if current_search %}q={{ current_search }}&{% endif %}page={{ page_obj.previous_page_number }}">Prev</a>
+    <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_technician %}technician={{ current_technician }}&{% endif %}{% if current_sla_state %}sla_state={{ current_sla_state }}&{% endif %}{% if current_search %}q={{ current_search }}&{% endif %}page={{ page_obj.previous_page_number }}">Prev</a>
   {% endif %}
   <span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
   {% if page_obj.has_next %}
-    <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_technician %}technician={{ current_technician }}&{% endif %}{% if current_search %}q={{ current_search }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+    <a href="?{% if current_status %}status={{ current_status }}&{% endif %}{% if current_technician %}technician={{ current_technician }}&{% endif %}{% if current_sla_state %}sla_state={{ current_sla_state }}&{% endif %}{% if current_search %}q={{ current_search }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
   {% endif %}
 </div>
 {% endif %}

@@ -16,9 +16,30 @@ def is_cancelled_status(name):
 def is_terminal_status(name):
     return is_cancelled_status(name) or any(k in (name or "").lower() for k in TERMINAL_KEYWORDS)
 
+
+def status_display_color(status_name):
+    """Terminal, non-cancelled statuses (Resolved, Closed) always display in the
+    same green used for the "Within SLA" badge, regardless of ServiceDesk Plus's
+    own status_color, so a ticket's outcome reads consistently across the app."""
+    if is_terminal_status(status_name) and not is_cancelled_status(status_name):
+        return "#17824a"
+    return None
+
+
 TERMINAL_Q = Q(status__icontains="closed") | Q(status__icontains="resolved") | Q(status__icontains="cancel")
 CANCELLED_Q = Q(status__icontains="cancel")
 OPEN_Q = ~TERMINAL_Q
+
+SLA_STATE_FILTERS = {
+    "on_track": OPEN_Q & Q(is_overdue=False),
+    "overdue": OPEN_Q & Q(is_overdue=True),
+    "within_sla": TERMINAL_Q & ~CANCELLED_Q & Q(sla_met=True),
+    "breached": TERMINAL_Q & ~CANCELLED_Q & Q(sla_met=False),
+    "unknown": TERMINAL_Q & ~CANCELLED_Q & Q(sla_met__isnull=True),
+    "not_applicable": CANCELLED_Q,
+}
+
+
 def is_business_day(dt):
     from django.conf import settings
     if dt.weekday() >= 5:
@@ -110,7 +131,7 @@ class Ticket(models.Model):
 
     @property
     def status_hex(self):
-        return self.status_color or DEFAULT_STATUS_COLOR
+        return status_display_color(self.status) or self.status_color or DEFAULT_STATUS_COLOR
 
     @property
     def status_badge_bg(self):

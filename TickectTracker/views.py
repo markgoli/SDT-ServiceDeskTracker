@@ -11,6 +11,7 @@ from .models import (
     CANCELLED_Q,
     DEFAULT_STATUS_COLOR,
     OPEN_Q,
+    SLA_STATE_FILTERS,
     TERMINAL_Q,
     SyncLog,
     Ticket,
@@ -301,12 +302,15 @@ class TicketListView(ListView):
         qs = Ticket.objects.all().order_by("-created_at")
         status = self.request.GET.get("status", "").strip()
         technician = self.request.GET.get("technician", "").strip()
+        sla_state = self.request.GET.get("sla_state", "").strip()
         search = self.request.GET.get("q", "").strip()
 
         if status:
             qs = qs.filter(status=status)
         if technician:
             qs = qs.filter(technician=technician)
+        if sla_state in SLA_STATE_FILTERS:
+            qs = qs.filter(SLA_STATE_FILTERS[sla_state])
         if search:
             qs = qs.filter(
                 Q(reference_id__icontains=search)
@@ -321,8 +325,10 @@ class TicketListView(ListView):
         ctx.update({
             "status_choices": Ticket.objects.values_list("status", flat=True).distinct().order_by("status"),
             "technicians": Ticket.objects.values_list("technician", flat=True).distinct().order_by("technician"),
+            "sla_state_choices": [(key, Ticket.SLA_STATE_LABELS[key]) for key in SLA_STATE_FILTERS],
             "current_status": self.request.GET.get("status", ""),
             "current_technician": self.request.GET.get("technician", ""),
+            "current_sla_state": self.request.GET.get("sla_state", ""),
             "current_search": self.request.GET.get("q", ""),
             "latest_sync": _latest_sync(),
         })

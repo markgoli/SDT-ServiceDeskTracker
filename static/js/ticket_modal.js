@@ -12,7 +12,10 @@
       label: "SLA",
       fields: [
         ["SLA Policy", "slaPolicy"],
-        ["SLA Due", "slaDue"],
+        ["Assigned", "assigned"],
+        ["SLA Due (ServiceDesk Plus)", "slaDue"],
+        ["Actual Due Date (business days)", "actualDue"],
+        ["Overdue", "overdue"],
         ["Days Open / Elapsed", "daysOpen"],
       ],
     },
