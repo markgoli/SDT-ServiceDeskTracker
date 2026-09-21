@@ -64,6 +64,44 @@
   </div>
 </div>
 
+<div class="panel" style="margin-bottom:14px;">
+    <h2>Assigned Open Workload and SLA Timelines</h2>
+    <div class="panel-sub">Current workload and SLA dates, per technician</div>
+  {% if sla_transparency_rows %}
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Reference ID</th>
+            <th>Subject</th>
+            <th>Technician</th>
+            <th>Assigned Date</th>
+            <th>SLA Period</th>
+            <th>Actual Due Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in sla_transparency_rows %}
+          <tr>
+            <td class="ref-id">{{ row.ref }}</td>
+            <td>{{ row.subject }}</td>
+            <td>{{ row.technician }}</td>
+            <td>{{ row.assigned_at|date:"M j, Y g:i A" }}</td>
+            <td>{{ row.sla_period }}d</td>
+            <td>{{ row.due_at|date:"M j, Y g:i A" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">No assigned open requests right now.</div>
+  {% endif %}
+</div>
+
+
 <div class="panel-grid">
   <div class="panel">
     <h2>Status Breakdown</h2>
@@ -130,7 +168,7 @@
 
   <div class="panel">
     <h2>Open Request SLA Lifetime</h2>
-    <div class="panel-sub">Days elapsed since assignment, per open request — green while within the SLA window, red once breached. Assigned requests only.</div>
+    <div class="panel-sub">Days elapsed since assignment, per open request.</div>
     {% if sla_lifetime_chart.labels %}
     <div class="chart-wrap"><canvas id="slaLifetimeChart"></canvas></div>
     {% else %}
@@ -254,40 +292,6 @@
   </div>
 </div>
 
-<div class="panel" style="margin-bottom:14px;">
-  <h2>SLA Calculation Transparency</h2>
-  <div class="panel-sub">Every assigned open request, showing exactly how its due date was derived: Assigned Date + SLA Period (business days, Mon-Fri, holidays excluded). "Actual Due Date" is our own calculation, not ServiceDesk Plus's due_by_time.</div>
-  {% if sla_transparency_rows %}
-  <div class="table-wrap">
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Reference</th>
-            <th>Technician</th>
-            <th>Assigned Date</th>
-            <th>SLA Period</th>
-            <th>Actual Due Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in sla_transparency_rows %}
-          <tr>
-            <td class="ref-id">{{ row.ref }}</td>
-            <td>{{ row.technician }}</td>
-            <td>{{ row.assigned_at|date:"M j, Y g:i A" }}</td>
-            <td>{{ row.sla_period }}d</td>
-            <td>{{ row.due_at|date:"M j, Y g:i A" }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-  {% else %}
-  <div class="empty-state">No assigned open requests right now.</div>
-  {% endif %}
-</div>
 
 {{ status_chart|json_script:"status-chart-data" }}
 {{ sla_chart|json_script:"sla-chart-data" }}

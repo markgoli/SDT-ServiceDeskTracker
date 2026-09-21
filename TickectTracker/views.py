@@ -211,6 +211,7 @@ class DashboardView(TemplateView):
 
             sla_transparency_rows.append({
                 "ref": t.reference_id,
+                "subject": t.system_name,
                 "technician": t.technician or "Unassigned",
                 "assigned_at": t.assigned_at,
                 "sla_period": threshold,
