@@ -9,25 +9,19 @@ instead of module-level constants.
 """
 import json
 import re
+from datetime import datetime, timezone as dt_timezone
 from html import unescape
 from html.parser import HTMLParser
 
 import requests
 from django.conf import settings
+from django.utils import timezone
 
+from ..models import add_business_days
 from .exceptions import DataSourceError
 
 ROW_COUNT = 100  # max allowed per page by the API
 
-# fields_required REPLACES the list endpoint's default field set rather than
-# adding to it, so every field the sync needs from the bulk call has to be
-# listed explicitly. Confirmed by testing against the live API: this gets us
-# approval_status, sla, assigned_time and resolved_time all in bulk — only
-# udf_fields (where the approver emails live) stays empty here regardless;
-# that only ever populates on the single-record detail endpoint (see
-# fetch_request_by_id). is_overdue is deliberately not requested — the sync
-# computes its own overdue flag from assigned_time + the template's SLA
-# window rather than trusting ServiceDesk Plus's due_by_time-based one.
 LIST_FIELDS_REQUIRED = [
     "id", "subject", "status", "technician", "requester", "template",
     "created_time", "due_by_time", "assigned_time", "resolved_time",
@@ -171,6 +165,27 @@ def _get(data, *path):
     return current
 
 
+def _parse_epoch_ms(value):
+    if value in (None, ""):
+        return None
+    try:
+        ms = int(value)
+    except (TypeError, ValueError):
+        return None
+    return datetime.fromtimestamp(ms / 1000, tz=dt_timezone.utc)
+
+
+def _actual_due_at(detail):
+    """Our own calculation (assigned_at + the template's business-day SLA
+    window) — same logic the sync uses, not ServiceDesk Plus's due_by_time."""
+    assigned_at = _parse_epoch_ms(_get(detail, "assigned_time", "value"))
+    template_id = str(_get(detail, "template", "id") or "")
+    sla_days = settings.SDP_TEMPLATE_SLA_DAYS.get(template_id)
+    if assigned_at is None or sla_days is None:
+        return None
+    return add_business_days(assigned_at, sla_days)
+
+
 def build_lookup_sections(detail):
     """
     Curate a ServiceDesk Plus request detail into labeled sections for the
@@ -186,6 +201,7 @@ def build_lookup_sections(detail):
     udf = detail.get("udf_fields") or {}
     closure = detail.get("closure_info") or {}
     resolution = detail.get("resolution") or {}
+    actual_due_at = _actual_due_at(detail)
 
     sections = [
         {
@@ -217,7 +233,12 @@ def build_lookup_sections(detail):
                 {"label": "SLA Policy", "value": _get(detail, "sla", "name") or _get(detail, "service_sla", "sla", "name")},
                 {"label": "Approval Status", "value": _get(detail, "approval_status", "name")},
                 {"label": "Created", "value": _get(detail, "created_time", "display_value")},
-                {"label": "Due By", "value": _get(detail, "due_by_time", "display_value")},
+                {"label": "Assigned", "value": _get(detail, "assigned_time", "display_value")},
+                {"label": "Due By (ServiceDesk Plus)", "value": _get(detail, "due_by_time", "display_value")},
+                {
+                    "label": "Actual Due Date (business days)",
+                    "value": timezone.localtime(actual_due_at).strftime("%b %d, %Y %I:%M %p") if actual_due_at else None,
+                },
                 {"label": "Resolved", "value": _get(detail, "resolved_time", "display_value") or _get(detail, "completed_time", "display_value")},
                 {"label": "Overdue", "value": "Yes" if detail.get("is_overdue") else "No"},
             ],

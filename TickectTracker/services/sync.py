@@ -1,47 +1,10 @@
-"""
-Upserts Ticket rows from ServiceDesk Plus request data.
 
-Field mapping (see a sample response via `python manage.py sdp_sample_fetch`):
-    id                    -> reference_id (unique key)
-    subject               -> system_name
-    technician.name       -> technician
-    requester.name        -> responsible_person ("Requester" in the UI)
-    template.name/.id     -> template_name / template_id
-    status.name/.color    -> status / status_color (freeform — see models.py)
-    created_time.value    -> created_at (epoch milliseconds)
-    assigned_time.value   -> assigned_at (epoch milliseconds — the SLA clock start)
-    resolved_time/
-      completed_time      -> closed_at (epoch milliseconds — the SLA clock end)
-    due_by_time.value     -> sla_due_at (display/context only — see below)
-    approval_status.name  -> approval_status
-    sla.name               -> sla_policy_name
-
-SLA compliance is NOT computed from due_by_time. It's a fixed day-window
-per template (settings.SDP_TEMPLATE_SLA_DAYS), compared against the actual
-assigned_at -> closed_at duration. due_by_time turned out not to cleanly
-match that window once checked against real data (SDP's own SLA engine
-factors in business hours), so it's kept only as display context.
-
-Everything above — including assigned_time and resolved_time — is
-confirmed (by testing against the live API) to populate on the bulk list
-call via fields_required, so none of it needs a per-ticket detail call.
-Only udf_fields (approver_1/approver_2/approval_team) requires one — so a
-detail call is made just once per ticket ever (tracked by detail_synced),
-not on every sync.
-
-ServiceDesk Plus doesn't expose *who* approved a request via approval_status
-(checked the request detail and the dedicated /approvals endpoint — neither
-carries an approver identity) — approved_at is therefore our own
-observed-transition timestamp, not an API-provided approval log. The
-udf_sline_2401/2402 fields the user identified as Approver 1/2 are a
-different, real signal — see models.py for the caveats on that mapping.
-"""
 from datetime import datetime, timezone as dt_timezone
 
 from django.conf import settings
 from django.utils import timezone
 
-from ..models import SyncLog, Ticket
+from ..models import SyncLog, Ticket, business_days_between
 from .exceptions import DataSourceError
 from .sdp_client import fetch_all_requests, fetch_request_by_id
 
@@ -63,7 +26,7 @@ def _compute_is_overdue(ticket):
     threshold = settings.SDP_TEMPLATE_SLA_DAYS.get(ticket.template_id)
     if threshold is None:
         return False
-    return (timezone.now() - ticket.assigned_at).days > threshold
+    return business_days_between(ticket.assigned_at, timezone.now()) > threshold
 
 
 def _apply_sla(ticket, raw):
@@ -85,7 +48,7 @@ def _apply_sla(ticket, raw):
             ticket.elapsed_days = None
             ticket.sla_met = None
         else:
-            elapsed = (resolved_at - ticket.assigned_at).days
+            elapsed = business_days_between(ticket.assigned_at, resolved_at)
             ticket.elapsed_days = elapsed
             threshold = settings.SDP_TEMPLATE_SLA_DAYS.get(ticket.template_id)
             ticket.sla_met = elapsed <= threshold if threshold is not None else None

@@ -7,7 +7,16 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, TemplateView
 
-from .models import CANCELLED_Q, DEFAULT_STATUS_COLOR, OPEN_Q, TERMINAL_Q, SyncLog, Ticket, is_terminal_status
+from .models import (
+    CANCELLED_Q,
+    DEFAULT_STATUS_COLOR,
+    OPEN_Q,
+    TERMINAL_Q,
+    SyncLog,
+    Ticket,
+    business_days_between,
+    is_terminal_status,
+)
 from .services.exceptions import DataSourceError
 from .services.sdp_client import build_lookup_sections, fetch_request_by_id
 from .services.sync import sync_tickets
@@ -68,11 +77,6 @@ class DashboardView(TemplateView):
             .order_by("month")
         )
 
-        # Closed/Resolved and On Hold statuses use our own house colors
-        # (matching the green/red used on the SLA charts) instead of
-        # ServiceDesk Plus's raw status.color, so they read as the same
-        # color everywhere on the dashboard rather than whatever shade
-        # this SDP instance happens to be configured with.
         def _status_color(status_name):
             name = status_name.lower()
             if is_terminal_status(status_name) and "cancel" not in name:
@@ -168,27 +172,29 @@ class DashboardView(TemplateView):
             for row in open_qs.values("technician", "reference_id", "system_name").order_by("technician", "reference_id")
         ]
 
-        # Only open tickets that have actually been assigned have a running
-        # SLA clock (calculated_due_at is None otherwise) — these three
-        # views only make sense for those.
         today_local = timezone.localdate()
         sla_lifetime_rows = []
         due_dates_rows = []
         due_today_rows = []
+        sla_transparency_rows = []
 
         for t in open_qs.filter(assigned_at__isnull=False):
             due_at = t.calculated_due_at
             if due_at is None:
                 continue
 
-            elapsed = (now - t.assigned_at).days
+            elapsed = t.days_open
             threshold = t.sla_target_days
             within = min(elapsed, threshold)
             over = max(0, elapsed - threshold)
             sla_lifetime_rows.append({"ref": t.reference_id, "within": within, "over": over})
 
             due_local_date = timezone.localtime(due_at).date()
-            days_until = (due_local_date - today_local).days
+        
+            if now <= due_at:
+                days_until = business_days_between(now, due_at)
+            else:
+                days_until = -business_days_between(due_at, now)
             due_dates_rows.append({
                 "ref": t.reference_id,
                 "days_until": days_until,
@@ -202,6 +208,17 @@ class DashboardView(TemplateView):
                     "system": t.system_name,
                     "template_type": "Revalidation" if "revalidation" in t.template_name.lower() else "New Assessment",
                 })
+
+            sla_transparency_rows.append({
+                "ref": t.reference_id,
+                "technician": t.technician or "Unassigned",
+                "assigned_at": t.assigned_at,
+                "sla_period": threshold,
+                "due_at": due_at,
+                "days_until": days_until,
+            })
+
+        sla_transparency_rows.sort(key=lambda r: r["days_until"])
 
         sla_lifetime_rows.sort(key=lambda r: (r["over"], r["within"]), reverse=True)
         sla_lifetime_rows = sla_lifetime_rows[:30]
@@ -264,6 +281,7 @@ class DashboardView(TemplateView):
             "sla_lifetime_chart": sla_lifetime_chart,
             "due_dates_chart": due_dates_chart,
             "due_today_rows": due_today_rows,
+            "sla_transparency_rows": sla_transparency_rows,
             "sla_turnaround": sla_turnaround,
             "technician_rows": technician_rows,
             "open_tickets_table": open_tickets_table,
@@ -276,7 +294,7 @@ class TicketListView(ListView):
     model = Ticket
     template_name = "ticket_list.html"
     context_object_name = "tickets"
-    paginate_by = 10
+    paginate_by = 12
 
     def get_queryset(self):
         qs = Ticket.objects.all().order_by("-created_at")

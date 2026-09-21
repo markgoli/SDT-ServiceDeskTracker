@@ -18,7 +18,7 @@
   <div class="app-shell">
     <main class="main">
       <div class="topbar">
-        <div class="topbar-row">
+        <div class="topbar-row topbar-row-main">
           <div class="topbar-heading">
             <span class="brand-mark">SD</span>
             <h1>{% block page_title %}Analytics{% endblock %} <span class="title-suffix">- SDT</span></h1>
@@ -31,7 +31,8 @@
               </a>
             </nav>
           </div>
-          <div class="sync-controls">
+
+          <div class="topbar-center">
             <div class="lookup-field">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               <input type="text" id="lookup-input" placeholder="Look up request ID…" aria-label="Look up request ID">
@@ -39,6 +40,9 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
               </button>
             </div>
+          </div>
+
+          <div class="sync-controls">
             <div class="sync-status">
               {% if latest_sync %}
                 {% if latest_sync.success %}

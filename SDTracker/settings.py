@@ -134,5 +134,23 @@ def _parse_template_sla_days(raw):
 # Fixed SLA day-window per template — see .env for the format/rationale.
 SDP_TEMPLATE_SLA_DAYS = _parse_template_sla_days(os.environ.get("SDP_TEMPLATE_SLA_DAYS", ""))
 
+
+def _parse_holidays(raw):
+    from datetime import date
+
+    result = set()
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            result.add(date.fromisoformat(token))
+        except ValueError:
+            continue
+    return result
+
+
+SDP_HOLIDAYS = _parse_holidays(os.environ.get("SDP_HOLIDAYS", ""))
+
 AUTO_REFRESH_MINUTES = int(os.environ.get("AUTO_REFRESH_MINUTES", "30"))
 
