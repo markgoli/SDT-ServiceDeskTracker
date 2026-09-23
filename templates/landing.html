@@ -94,7 +94,7 @@
             <td>
               <div class="lifetime-bar-wrap">
                 <div class="lifetime-bar-track{% if row.breached %} breached{% endif %}">
-                  <div class="lifetime-bar-cover" style="width: {{ row.lifetime_remaining_pct }}%"></div>
+                  <div class="lifetime-bar-cover" data-remaining="{{ row.lifetime_remaining_pct }}"></div>
                 </div>
                 <span class="lifetime-bar-pct">{{ row.lifetime_pct }}%</span>
               </div>
@@ -197,4 +197,5 @@
 
 {% block extra_js %}
 <script src="{% static 'js/dashboard_charts.js' %}"></script>
+<script src="{% static 'js/lifetime_bars.js' %}"></script>
 {% endblock %}

@@ -125,11 +125,8 @@
     </div>
   </div>
 
-  <script>
-    window.REFRESH_URL = "{% url 'tracker:refresh' %}";
-    window.REQUEST_LOOKUP_URL = "{% url 'tracker:request_lookup' %}";
-    window.AUTO_REFRESH_MINUTES = {{ auto_refresh_minutes }};
-  </script>
+  {{ app_config|json_script:"app-config-data" }}
+  <script src="{% static 'js/app_config.js' %}"></script>
   <script src="{% static 'js/app.js' %}"></script>
   <script src="{% static 'js/relative_time.js' %}"></script>
   <script src="{% static 'js/ticket_modal.js' %}"></script>
