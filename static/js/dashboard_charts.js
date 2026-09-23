@@ -15,7 +15,6 @@
   const weeklyData = readData("weekly-chart-data");
   const workloadData = readData("workload-chart-data");
   const technicianSlaData = readData("technician-sla-chart-data");
-  const slaLifetimeData = readData("sla-lifetime-chart-data");
   const dueDatesData = readData("due-dates-chart-data");
 
   // Wall-display default: every chart shows its own values permanently
@@ -176,53 +175,6 @@
             offset: 2,
             font: { weight: "700", size: 9.5 },
             formatter: (value) => value || "",
-          },
-        },
-      },
-    });
-  }
-
-  const slaLifetimeCanvas = document.getElementById("slaLifetimeChart");
-  if (slaLifetimeCanvas && slaLifetimeData && slaLifetimeData.labels.length) {
-    new Chart(slaLifetimeCanvas, {
-      type: "bar",
-      data: {
-        labels: slaLifetimeData.labels,
-        datasets: [
-          { label: "Within SLA", data: slaLifetimeData.within, backgroundColor: "#1fae5e", stack: "sla", maxBarThickness: 14 },
-          { label: "Overdue", data: slaLifetimeData.over, backgroundColor: "#f0453a", stack: "sla", maxBarThickness: 14 },
-        ],
-      },
-      options: {
-        indexAxis: "y",
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: { padding: { right: 34 } },
-        scales: {
-          x: {
-            stacked: true,
-            beginAtZero: true,
-            ticks: { precision: 0, font: { size: 10 } },
-            grid: { display: false },
-            title: { display: true, text: "Days elapsed since assignment", font: { size: 10.5 } },
-          },
-          y: { stacked: true, ticks: { font: { size: 10 } }, grid: { display: false } },
-        },
-        plugins: {
-          legend: { position: "bottom", labels: { boxWidth: 9, font: { size: 10.5 } } },
-          datalabels: {
-            display: (ctx) => ctx.datasetIndex === 1,
-            color: "#101828",
-            anchor: "end",
-            align: "end",
-            offset: 2,
-            font: { weight: "700", size: 10 },
-            formatter: (value, ctx) => {
-              const idx = ctx.dataIndex;
-              const within = ctx.chart.data.datasets[0].data[idx];
-              const total = within + value;
-              return total > 0 ? `${total}d` : "";
-            },
           },
         },
       },

@@ -34,8 +34,8 @@
         </div>
       </div>
       <div class="stat-trio-item">
-        <div class="stat-trio-label">Cancelled</div>
-        <div class="stat-trio-value" style="color:#707070">{{ cancelled_count }}</div>
+        <div class="stat-trio-label">Due Today</div>
+        <div class="stat-trio-value" style="color:#ef2424">{{ due_today_count }}</div>
       </div>
     </div>
   </div>
@@ -79,17 +79,26 @@
             <th>Assigned Date</th>
             <th>SLA Period</th>
             <th>Actual Due Date</th>
+            <th>Request Lifetime</th>
           </tr>
         </thead>
         <tbody>
           {% for row in sla_transparency_rows %}
-          <tr>
+          <tr class="{% if row.due_today %}due-today-row{% endif %}">
             <td class="ref-id">{{ row.ref }}</td>
             <td>{{ row.subject }}</td>
             <td>{{ row.technician }}</td>
             <td>{{ row.assigned_at|date:"M j, Y g:i A" }}</td>
             <td>{{ row.sla_period }}d</td>
             <td>{{ row.due_at|date:"M j, Y g:i A" }}</td>
+            <td>
+              <div class="lifetime-bar-wrap">
+                <div class="lifetime-bar-track{% if row.breached %} breached{% endif %}">
+                  <div class="lifetime-bar-cover" style="width: {{ row.lifetime_remaining_pct }}%"></div>
+                </div>
+                <span class="lifetime-bar-pct">{{ row.lifetime_pct }}%</span>
+              </div>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -110,6 +119,38 @@
     <div class="chart-wrap"><canvas id="statusChart"></canvas></div>
     {% else %}
     <div class="empty-state">No data yet. Click "Refresh data" to sync.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Open Workload</h2>
+    <div class="panel-sub">Open requests per technician</div>
+    {% if workload_chart.labels %}
+    <div class="chart-wrap"><canvas id="workloadChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No open requests right now.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Open Request Due Dates</h2>
+    <div class="panel-sub">Days until each assigned open request is due (negative = already overdue)</div>
+    {% if due_dates_chart.labels %}
+    <div class="chart-wrap"><canvas id="dueDatesChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No assigned open requests right now.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel-grid">
+  <div class="panel">
+    <h2>Technician SLA Compliance</h2>
+    <div class="panel-sub">Closed within SLA vs. outside SLA, per technician</div>
+    {% if technician_sla_chart.labels %}
+    <div class="chart-wrap"><canvas id="technicianSlaChart"></canvas></div>
+    {% else %}
+    <div class="empty-state">No closed assessments with a known technician yet.</div>
     {% endif %}
   </div>
 
@@ -142,156 +183,7 @@
     <div class="empty-state">Not enough closed history yet.</div>
     {% endif %}
   </div>
-
-
-  <div class="panel">
-    <h2>Open Workload</h2>
-    <div class="panel-sub">Open requests per technician</div>
-    {% if workload_chart.labels %}
-    <div class="chart-wrap"><canvas id="workloadChart"></canvas></div>
-    {% else %}
-    <div class="empty-state">No open requests right now.</div>
-    {% endif %}
-  </div>
 </div>
-
-<div class="panel-grid">
-  <div class="panel">
-    <h2>Technician SLA Compliance</h2>
-    <div class="panel-sub">Closed within SLA vs. outside SLA, per technician</div>
-    {% if technician_sla_chart.labels %}
-    <div class="chart-wrap"><canvas id="technicianSlaChart"></canvas></div>
-    {% else %}
-    <div class="empty-state">No closed assessments with a known technician yet.</div>
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <h2>Open Request SLA Lifetime</h2>
-    <div class="panel-sub">Days elapsed since assignment, per open request.</div>
-    {% if sla_lifetime_chart.labels %}
-    <div class="chart-wrap"><canvas id="slaLifetimeChart"></canvas></div>
-    {% else %}
-    <div class="empty-state">No assigned open requests right now.</div>
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <h2>Open Request Due Dates</h2>
-    <div class="panel-sub">Days until each assigned open request is due (negative = already overdue)</div>
-    {% if due_dates_chart.labels %}
-    <div class="chart-wrap"><canvas id="dueDatesChart"></canvas></div>
-    {% else %}
-    <div class="empty-state">No assigned open requests right now.</div>
-    {% endif %}
-  </div>
-</div>
-
-<div class="panel-grid">
-  <div class="panel">
-    <h2>Technician Performance</h2>
-    <div class="panel-sub">Current workload and closed-request track record, per technician</div>
-    {% if technician_rows %}
-    <div class="table-wrap">
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Technician</th>
-              <th>Open</th>
-              <th>Closed</th>
-              <th>Cancelled</th>
-              <th>Total</th>
-              <th>Avg Days to Close</th>
-              <th>SLA Compliance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in technician_rows %}
-            <tr>
-              <td>{{ row.technician }}</td>
-              <td>{{ row.open }}</td>
-              <td>{{ row.closed }}</td>
-              <td>{{ row.cancelled }}</td>
-              <td>{{ row.total }}</td>
-              <td>{% if row.avg_days is not None %}{{ row.avg_days }}d{% else %}&mdash;{% endif %}</td>
-              <td>{% if row.compliance_rate is not None %}{{ row.compliance_rate }}%{% else %}&mdash;{% endif %}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    {% else %}
-    <div class="empty-state">No technician activity yet.</div>
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <h2>Open Tickets by Technician</h2>
-    <div class="panel-sub">Every currently open request, with its owner</div>
-    {% if open_tickets_table %}
-    <div class="table-wrap">
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Technician</th>
-              <th>Reference</th>
-              <th>Subject</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in open_tickets_table %}
-            <tr>
-              <td>{{ row.technician }}</td>
-              <td class="ref-id">{{ row.ref }}</td>
-              <td>{{ row.system }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    {% else %}
-    <div class="empty-state">No open requests right now.</div>
-    {% endif %}
-  </div>
-
-  <div class="panel">
-    <h2>Due Today</h2>
-    <div class="panel-sub">Assigned open requests whose SLA is due today</div>
-    {% if due_today_rows %}
-    <div class="table-wrap">
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Reference</th>
-              <th>Technician</th>
-              <th>Subject</th>
-              <th>Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in due_today_rows %}
-            <tr>
-              <td class="ref-id">{{ row.ref }}</td>
-              <td>{{ row.technician }}</td>
-              <td>{{ row.system }}</td>
-              <td>{{ row.template_type }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    {% else %}
-    <div class="empty-state">Nothing due today.</div>
-    {% endif %}
-  </div>
-</div>
-
 
 {{ status_chart|json_script:"status-chart-data" }}
 {{ sla_chart|json_script:"sla-chart-data" }}
@@ -299,7 +191,6 @@
 {{ weekly_chart|json_script:"weekly-chart-data" }}
 {{ workload_chart|json_script:"workload-chart-data" }}
 {{ technician_sla_chart|json_script:"technician-sla-chart-data" }}
-{{ sla_lifetime_chart|json_script:"sla-lifetime-chart-data" }}
 {{ due_dates_chart|json_script:"due-dates-chart-data" }}
 
 {% endblock %}

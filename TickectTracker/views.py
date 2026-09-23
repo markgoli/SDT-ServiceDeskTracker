@@ -174,7 +174,6 @@ class DashboardView(TemplateView):
         ]
 
         today_local = timezone.localdate()
-        sla_lifetime_rows = []
         due_dates_rows = []
         due_today_rows = []
         sla_transparency_rows = []
@@ -186,12 +185,13 @@ class DashboardView(TemplateView):
 
             elapsed = t.days_open
             threshold = t.sla_target_days
-            within = min(elapsed, threshold)
             over = max(0, elapsed - threshold)
-            sla_lifetime_rows.append({"ref": t.reference_id, "within": within, "over": over})
+            breached = over > 0
+            lifetime_pct = round(elapsed / threshold * 100) if threshold else 0
+            lifetime_remaining_pct = 0 if breached else max(0, 100 - lifetime_pct)
 
             due_local_date = timezone.localtime(due_at).date()
-        
+
             if now <= due_at:
                 days_until = business_days_between(now, due_at)
             else:
@@ -218,17 +218,13 @@ class DashboardView(TemplateView):
                 "sla_period": threshold,
                 "due_at": due_at,
                 "days_until": days_until,
+                "due_today": due_local_date == today_local,
+                "breached": breached,
+                "lifetime_pct": lifetime_pct,
+                "lifetime_remaining_pct": lifetime_remaining_pct,
             })
 
         sla_transparency_rows.sort(key=lambda r: r["days_until"])
-
-        sla_lifetime_rows.sort(key=lambda r: (r["over"], r["within"]), reverse=True)
-        sla_lifetime_rows = sla_lifetime_rows[:30]
-        sla_lifetime_chart = {
-            "labels": [r["ref"] for r in sla_lifetime_rows],
-            "within": [r["within"] for r in sla_lifetime_rows],
-            "over": [r["over"] for r in sla_lifetime_rows],
-        }
 
         due_dates_rows.sort(key=lambda r: r["days_until"])
         due_dates_rows = due_dates_rows[:30]
@@ -240,29 +236,6 @@ class DashboardView(TemplateView):
 
         due_today_rows.sort(key=lambda r: r["technician"])
 
-        technician_performance = (
-            tickets.exclude(technician="")
-            .values("technician")
-            .annotate(
-                open=Count("id", filter=OPEN_Q),
-                closed=Count("id", filter=TERMINAL_Q & ~CANCELLED_Q),
-                cancelled=Count("id", filter=CANCELLED_Q),
-                total=Count("id"),
-                avg_days=Avg("elapsed_days"),
-                within=Count("id", filter=Q(sla_met=True)),
-                outside=Count("id", filter=Q(sla_met=False)),
-            )
-            .order_by("-total")
-        )
-        technician_rows = []
-        for row in technician_performance:
-            closed_with_sla = row["within"] + row["outside"]
-            technician_rows.append({
-                **row,
-                "avg_days": round(row["avg_days"], 1) if row["avg_days"] is not None else None,
-                "compliance_rate": round(row["within"] / closed_with_sla * 100, 1) if closed_with_sla else None,
-            })
-
         ctx.update({
             "total": total,
             "open_count": open_qs.count(),
@@ -270,6 +243,7 @@ class DashboardView(TemplateView):
             "on_track_count": on_track_count,
             "closed_count": closed_count,
             "cancelled_count": cancelled_count,
+            "due_today_count": len(due_today_rows) or 0,
             "closed_within_sla": closed_sla["within"],
             "closed_outside_sla": closed_sla["outside"],
             "closed_unknown_sla": closed_sla["unknown"],
@@ -280,12 +254,10 @@ class DashboardView(TemplateView):
             "weekly_chart": weekly_chart,
             "workload_chart": workload_chart,
             "technician_sla_chart": technician_sla_chart,
-            "sla_lifetime_chart": sla_lifetime_chart,
             "due_dates_chart": due_dates_chart,
             "due_today_rows": due_today_rows,
             "sla_transparency_rows": sla_transparency_rows,
             "sla_turnaround": sla_turnaround,
-            "technician_rows": technician_rows,
             "open_tickets_table": open_tickets_table,
             "latest_sync": _latest_sync(),
         })
@@ -330,6 +302,42 @@ class TicketListView(ListView):
             "current_technician": self.request.GET.get("technician", ""),
             "current_sla_state": self.request.GET.get("sla_state", ""),
             "current_search": self.request.GET.get("q", ""),
+            "latest_sync": _latest_sync(),
+        })
+        return ctx
+
+
+class TechnicianPerformanceView(TemplateView):
+    template_name = "technician_performance.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        technician_performance = (
+            Ticket.objects.exclude(technician="")
+            .values("technician")
+            .annotate(
+                open=Count("id", filter=OPEN_Q),
+                closed=Count("id", filter=TERMINAL_Q & ~CANCELLED_Q),
+                cancelled=Count("id", filter=CANCELLED_Q),
+                total=Count("id"),
+                avg_days=Avg("elapsed_days"),
+                within=Count("id", filter=Q(sla_met=True)),
+                outside=Count("id", filter=Q(sla_met=False)),
+            )
+            .order_by("-total")
+        )
+        technician_rows = []
+        for row in technician_performance:
+            closed_with_sla = row["within"] + row["outside"]
+            technician_rows.append({
+                **row,
+                "avg_days": round(row["avg_days"], 1) if row["avg_days"] is not None else None,
+                "compliance_rate": round(row["within"] / closed_with_sla * 100, 1) if closed_with_sla else None,
+            })
+
+        ctx.update({
+            "technician_rows": technician_rows,
             "latest_sync": _latest_sync(),
         })
         return ctx

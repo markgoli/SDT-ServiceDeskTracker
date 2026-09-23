@@ -442,7 +442,49 @@ table.data-table { width: 100%; border-collapse: collapse; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover td { background: var(--surface-alt); }
 
+.due-today-row td { background: var(--red-soft); }
+.due-today-row:hover td { background: var(--red-soft); }
+
 .ref-id { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: var(--text-muted); }
+
+.lifetime-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.lifetime-bar-track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(90deg,
+    var(--green) 0%,
+    var(--green) 65%,
+    var(--amber) 85%,
+    var(--amber) 100%
+  );
+}
+
+.lifetime-bar-track.breached { background: var(--red); }
+
+.lifetime-bar-cover {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--slate-soft);
+}
+
+.lifetime-bar-pct {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: right;
+}
 
 .col-actions { width: 1%; text-align: right; }
 

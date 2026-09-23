@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Technician Performance — Service Desk Tracker{% endblock %}
+{% block page_title %}Technician Performance{% endblock %}
+{% block page_subtitle %}Current workload and closed-request track record, per technician{% endblock %}
+
+{% block content %}
+
+<div class="panel-grid">
+  <div class="panel">
+    <h2>Technician Performance</h2>
+    <div class="panel-sub">Current workload and closed-request track record, per technician</div>
+    {% if technician_rows %}
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Technician</th>
+              <th>Open</th>
+              <th>Closed</th>
+              <th>Cancelled</th>
+              <th>Total</th>
+              <th>Avg Days to Close</th>
+              <th>SLA Compliance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in technician_rows %}
+            <tr>
+              <td>{{ row.technician }}</td>
+              <td>{{ row.open }}</td>
+              <td>{{ row.closed }}</td>
+              <td>{{ row.cancelled }}</td>
+              <td>{{ row.total }}</td>
+              <td>{% if row.avg_days is not None %}{{ row.avg_days }}d{% else %}&mdash;{% endif %}</td>
+              <td>{% if row.compliance_rate is not None %}{{ row.compliance_rate }}%{% else %}&mdash;{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+    <div class="empty-state">No technician activity yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
