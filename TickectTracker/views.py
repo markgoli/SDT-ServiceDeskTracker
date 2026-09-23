@@ -17,6 +17,7 @@ from .models import (
     Ticket,
     business_days_between,
     is_terminal_status,
+    technician_alias,
 )
 from .services.exceptions import DataSourceError
 from .services.sdp_client import build_lookup_sections, fetch_request_by_id
@@ -121,7 +122,7 @@ class DashboardView(TemplateView):
             ])
 
         workload_chart = {
-            "labels": [row["technician"] or "Unassigned" for row in technician_load],
+            "labels": [technician_alias(row["technician"]) or "Unassigned" for row in technician_load],
             "data": [row["count"] for row in technician_load],
             "tickets": workload_tickets,
         }
@@ -159,7 +160,7 @@ class DashboardView(TemplateView):
             .order_by("-total_known")[:12]
         )
         technician_sla_chart = {
-            "labels": [row["technician"] for row in technician_sla_rows],
+            "labels": [technician_alias(row["technician"]) for row in technician_sla_rows],
             "within": [row["within"] for row in technician_sla_rows],
             "outside": [row["outside"] for row in technician_sla_rows],
         }
@@ -213,7 +214,7 @@ class DashboardView(TemplateView):
             sla_transparency_rows.append({
                 "ref": t.reference_id,
                 "subject": t.system_name,
-                "technician": t.technician or "Unassigned",
+                "technician": technician_alias(t.technician) or "Unassigned",
                 "assigned_at": t.assigned_at,
                 "sla_period": threshold,
                 "due_at": due_at,
@@ -296,7 +297,16 @@ class TicketListView(ListView):
         ctx = super().get_context_data(**kwargs)
         ctx.update({
             "status_choices": Ticket.objects.values_list("status", flat=True).distinct().order_by("status"),
-            "technicians": Ticket.objects.values_list("technician", flat=True).distinct().order_by("technician"),
+            "technicians": sorted(
+                (
+                    (tech, technician_alias(tech))
+                    for tech in Ticket.objects.exclude(technician="")
+                    .values_list("technician", flat=True)
+                    .order_by("technician")
+                    .distinct()
+                ),
+                key=lambda pair: pair[1],
+            ),
             "sla_state_choices": [(key, Ticket.SLA_STATE_LABELS[key]) for key in SLA_STATE_FILTERS],
             "current_status": self.request.GET.get("status", ""),
             "current_technician": self.request.GET.get("technician", ""),
@@ -332,6 +342,7 @@ class TechnicianPerformanceView(TemplateView):
             closed_with_sla = row["within"] + row["outside"]
             technician_rows.append({
                 **row,
+                "technician": technician_alias(row["technician"]),
                 "avg_days": round(row["avg_days"], 1) if row["avg_days"] is not None else None,
                 "compliance_rate": round(row["within"] / closed_with_sla * 100, 1) if closed_with_sla else None,
             })

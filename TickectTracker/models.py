@@ -26,6 +26,31 @@ def status_display_color(status_name):
     return None
 
 
+TECHNICIAN_ALIASES = {
+    "Anzo Benard": "Irony",
+    "Ikiriza Gensi Collin": "Vector",
+    "Mark Wasswa Goli": "Nova",
+    "Joanitta Buteraba Lynatte": "Bravo",
+    "Castro Nicholas": "Cyclescript",
+    "Wamimbi Ronald": "Titan",
+    "Semakula Sudais": "Raven",
+    "Caden Daniella": "Orion",
+    "Twinomugisha Elison": "Cardinal Richelieu",
+    "Ssendagala Joseph Herman": "Falcon",
+    "John Mukiibi Peter": "Merci",
+    "Rodney Hood Adriko": "Alpha",
+    "Syden Ouma": "Ag3nt0x41",
+}
+
+
+def technician_alias(name):
+    """Display-only alias for a technician's real name, per the internal roster
+    mapping — used everywhere a technician name is shown in the UI so the real
+    name never appears. Falls back to the name as-is (e.g. "" or an
+    unmapped technician) when there's no alias on file."""
+    return TECHNICIAN_ALIASES.get((name or "").strip(), name)
+
+
 TERMINAL_Q = Q(status__icontains="closed") | Q(status__icontains="resolved") | Q(status__icontains="cancel")
 CANCELLED_Q = Q(status__icontains="cancel")
 OPEN_Q = ~TERMINAL_Q
@@ -120,6 +145,10 @@ class Ticket(models.Model):
         "overdue": "Overdue",
         "on_track": "On Track",
     }
+
+    @property
+    def technician_display(self):
+        return technician_alias(self.technician)
 
     @property
     def is_cancelled(self):

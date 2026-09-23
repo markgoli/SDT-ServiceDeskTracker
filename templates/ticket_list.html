@@ -24,9 +24,9 @@
 
   <select name="technician" class="select-tight" aria-label="Filter by technician">
     <option value="">All technicians</option>
-    {% for tech in technicians %}
+    {% for tech, tech_alias in technicians %}
       {% if tech %}
-        <option value="{{ tech }}" {% if current_technician == tech %}selected{% endif %}>{{ tech }}</option>
+        <option value="{{ tech }}" {% if current_technician == tech %}selected{% endif %}>{{ tech_alias }}</option>
       {% endif %}
     {% endfor %}
   </select>
@@ -63,7 +63,7 @@
         <tr>
           <td class="ref-id">{{ t.reference_id }}</td>
           <td>{{ t.system_name }}</td>
-          <td>{{ t.technician }}</td>
+          <td>{{ t.technician_display }}</td>
           <td>{{ t.responsible_person }}</td>
           <td><span class="badge" style="background:{{ t.status_badge_bg }}; color:{{ t.status_hex }}">{{ t.status }}</span></td>
           <td><span class="badge badge-{{ t.sla_state }}">{{ t.sla_state_display }}</span></td>
@@ -75,7 +75,7 @@
               data-modal-trigger
               data-ref="{{ t.reference_id }}"
               data-system="{{ t.system_name }}"
-              data-technician="{{ t.technician }}"
+              data-technician="{{ t.technician_display }}"
               data-responsible="{{ t.responsible_person }}"
               data-template="{{ t.template_name }}"
               data-sla-policy="{{ t.sla_policy_name }}"

@@ -17,7 +17,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 
-from ..models import add_business_days
+from ..models import add_business_days, technician_alias
 from .exceptions import DataSourceError
 
 ROW_COUNT = 100  # max allowed per page by the API
@@ -220,7 +220,7 @@ def build_lookup_sections(detail):
             "rows": [
                 {"label": "Requester", "value": _get(detail, "requester", "name")},
                 {"label": "Requester Email", "value": _get(detail, "requester", "email_id")},
-                {"label": "Technician", "value": _get(detail, "technician", "name")},
+                {"label": "Technician", "value": technician_alias(_get(detail, "technician", "name"))},
                 {"label": "Technician Email", "value": _get(detail, "technician", "email_id")},
                 {"label": "Approver 1", "value": udf.get("udf_sline_2401")},
                 {"label": "Approver 2", "value": udf.get("udf_sline_2402")},
